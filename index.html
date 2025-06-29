@@ -1,4 +1,4 @@
-<!DOCTYPE html>Add commentMore actions
+<!DOCTYPE html>
 <html>
 <head>
   <title>Client Signup</title>
@@ -14,8 +14,11 @@
     <button type="submit">Sign Up</button>
   </form>
 
+  <!-- ✅ Add this below the form -->
+  <p>Already have an account? <a href="login.html">Login here</a></p>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <script src="supabase.js"></script> <!-- Make sure supabase.js contains correct URL and anon key -->
+  <script src="supabase.js"></script>
 
   <script>
     const form = document.getElementById('signup-form');
@@ -45,7 +48,6 @@
         return;
       }
 
-      // ✅ Insert into 'client' table
       const { error: insertError } = await supabase
         .from('client')
         .insert({
