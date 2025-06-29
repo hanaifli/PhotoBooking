@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Login</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label { display: block; margin: 10px 0 5px; }
+    input { padding: 8px; width: 250px; }
+    button { padding: 10px 20px; margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <h2>Admin Login</h2>
+
+  <form id="login-form">
+    <label>Email:</label>
+    <input type="email" id="email" required />
+
+    <label>Password:</label>
+    <input type="password" id="password" required />
+
+    <button type="submit">Login</button>
+  </form>
+
+  <p id="error" style="color: red;"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+    const errorDisplay = document.getElementById('error');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorDisplay.textContent = "";
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        errorDisplay.textContent = "❌ Login failed: " + error.message;
+        return;
+      }
+
+      const user = data.user;
+
+      // ✅ Now check if user is in the SystemAdmin table
+      const { data: admin, error: adminError } = await supabase
+        .from("systemadmin")
+        .select("adminid")
+        .eq("adminid", user.id)
+        .maybeSingle();
+
+      if (adminError || !admin) {
+        errorDisplay.textContent = "❌ Access denied: You are not an admin.";
+        await supabase.auth.signOut(); // logout to prevent session misuse
+        return;
+      }
+
+      // ✅ Redirect to admin_dashboard.html
+      window.location.href = "admin_dashboard.html";
+    });
+  </script>
+</body>
+</html>
+

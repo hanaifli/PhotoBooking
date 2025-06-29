@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+</head>
+<body>
+  <h2>Login</h2>
+  <form id="login-form">
+    <input type="email" id="email" placeholder="Email" required><br>
+    <input type="password" id="password" placeholder="Password" required><br>
+    <button type="submit">Login</button>
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        alert('Login error: ' + error.message);
+        return;
+      }
+
+      console.log("Login success:", data);
+
+      const userId = data.user.id;
+
+      // Check if user is a Client
+      const { data: client, error: clientErr } = await supabase
+        .from('client')
+        .select('clientid')
+        .eq('clientid', userId)
+        .maybeSingle();
+
+      if (client && client.clientid === userId) {
+        window.location.href = 'client_dashboard.html';
+        return;
+      }
+
+      // Check if user is an Admin
+      const { data: admin, error: adminErr } = await supabase
+        .from('systemadmin')
+        .select('adminid')
+        .eq('adminid', userId)
+        .maybeSingle();
+
+      if (admin && admin.adminid === userId) {
+        window.location.href = 'admin_dashboard.html';
+        return;
+      }
+
+      // Check if user is a Photographer
+      const { data: photographer, error: photographerErr } = await supabase
+        .from('photographer')
+        .select('photographerid')
+        .eq('photographerid', userId)
+        .maybeSingle();
+
+      if (photographer && photographer.photographerid === userId) {
+        window.location.href = 'photographer_dashboard.html';
+        return;
+      }
+
+      alert('User role not found.');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Bookings</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .booking-card {
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 2px 2px 8px #eee;
+    }
+    .booking-card strong {
+      font-size: 1.2em;
+    }
+    .booking-card button {
+      margin-top: 8px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>My Bookings</h2>
+  <div id="bookings">Loading...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const bookingsDiv = document.getElementById("bookings");
+
+    async function loadBookings() {
+      bookingsDiv.innerHTML = "🔄 Loading bookings...";
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        bookingsDiv.innerHTML = "❌ Not logged in.";
+        return;
+      }
+
+      const clientid = userData.user.id;
+      console.log("👤 Logged-in user ID:", clientid);
+
+      const { data, error } = await supabase
+        .from("booking")
+        .select(`
+          bookingid, bookingdate, bookingtime, bookingstatus, paymentamount, paymentstatus,
+          ServicePackage:serviceid(packagename)
+        `)
+        .eq("clientid", clientid)
+        .order("bookingdate", { ascending: false });
+
+      console.log("📦 Booking data:", data);
+      if (error) {
+        console.error("❌ Supabase error:", error.message);
+        bookingsDiv.innerHTML = "❌ Error loading bookings.";
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        bookingsDiv.innerHTML = "You have no bookings yet.";
+        return;
+      }
+
+      bookingsDiv.innerHTML = data.map(b => `
+        <div class="booking-card">
+          <strong>${b.ServicePackage?.packagename || "Package"}</strong><br>
+          📅 ${b.bookingdate} &nbsp; 🕒 ${b.bookingtime}<br>
+          💼 Status: ${b.bookingstatus} &nbsp; 💳 Payment: ${b.paymentstatus}<br>
+          💵 RM ${b.paymentamount}<br><br>
+
+          ${(b.bookingstatus === "Pending" || b.bookingstatus === "Confirmed") ? `
+            <button onclick="cancelBooking('${b.bookingid}')">Cancel</button>
+          ` : ""}
+
+          ${b.paymentstatus === "Unpaid" ? `
+            <button onclick="payNow('${b.bookingid}')">Pay Now</button>
+          ` : ""}
+        </div>
+      `).join('');
+    }
+
+    async function cancelBooking(id) {
+      if (!confirm("Are you sure you want to cancel this booking?")) return;
+
+      const { error } = await supabase
+        .from("booking")
+        .update({ bookingstatus: "Cancelled" })
+        .eq("bookingid", id);
+
+      if (error) {
+        alert("❌ Failed to cancel: " + error.message);
+        return;
+      }
+
+      alert("✅ Booking cancelled.");
+      loadBookings();
+    }
+
+    function payNow(bookingid) {
+      window.location.href = `payment.html?booking=${bookingid}`;
+    }
+
+    loadBookings();
+  </script>
+</body>
+</html>

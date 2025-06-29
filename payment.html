@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Make Payment</title>
+  <style>
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h2>Make Payment</h2>
+  <div id="payment-info"></div>
+
+  <form id="payment-form">
+    <label for="method">Payment Method:</label>
+    <select id="method" required>
+      <option value="">Select method</option>
+      <option value="Credit Card">Credit Card</option>
+      <option value="Online Banking">Online Banking</option>
+    </select><br><br>
+
+    <!-- Credit Card Section -->
+    <div id="credit-card-fields" class="hidden">
+      <input type="text" id="card-number" placeholder="Card Number"><br>
+      <input type="text" id="expiry" placeholder="Expiry (MM/YY)"><br>
+      <input type="text" id="cvv" placeholder="CVV"><br>
+      <input type="text" id="card-name" placeholder="Name on Card"><br>
+    </div>
+
+    <!-- Online Banking Section -->
+    <div id="online-banking-fields" class="hidden">
+      <select id="bank">
+        <option value="">Select Bank</option>
+        <option value="Maybank2u">Maybank2u</option>
+        <option value="Public Bank">Public Bank</option>
+        <option value="Bank Islam">Bank Islam</option>
+      </select><br>
+      <input type="text" id="online-username" placeholder="Bank Username"><br>
+      <input type="password" id="online-password" placeholder="Bank Password"><br>
+    </div>
+
+    <button type="submit">Proceed to Payment</button>
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bookingid = params.get('booking');
+    const paymentInfoDiv = document.getElementById('payment-info');
+    const form = document.getElementById('payment-form');
+
+    const methodSelect = document.getElementById('method');
+    const cardFields = document.getElementById('credit-card-fields');
+    const bankingFields = document.getElementById('online-banking-fields');
+
+    // Toggle required attributes dynamically
+    function toggleRequired(container, isRequired) {
+      const inputs = container.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        if (isRequired) {
+          input.setAttribute('required', 'true');
+        } else {
+          input.removeAttribute('required');
+        }
+      });
+    }
+
+    methodSelect.addEventListener('change', () => {
+      cardFields.classList.add('hidden');
+      bankingFields.classList.add('hidden');
+      toggleRequired(cardFields, false);
+      toggleRequired(bankingFields, false);
+
+      if (methodSelect.value === 'Credit Card') {
+        cardFields.classList.remove('hidden');
+        toggleRequired(cardFields, true);
+      } else if (methodSelect.value === 'Online Banking') {
+        bankingFields.classList.remove('hidden');
+        toggleRequired(bankingFields, true);
+      }
+    });
+
+    let bookingDetails = null;
+
+    async function loadBooking() {
+      const { data, error } = await supabase
+        .from('booking')
+        .select('bookingid, paymentamount, bookingdate, bookingtime')
+        .eq('bookingid', bookingid)
+        .maybeSingle();
+
+      if (error || !data) {
+        paymentInfoDiv.textContent = '❌ Booking not found.';
+        form.style.display = 'none';
+        return;
+      }
+
+      bookingDetails = data;
+      paymentInfoDiv.innerHTML = `
+        <p><strong>Booking ID:</strong> ${data.bookingid}</p>
+        <p><strong>Date:</strong> ${data.bookingdate}</p>
+        <p><strong>Time:</strong> ${data.bookingtime}</p>
+        <p><strong>Amount:</strong> RM ${data.paymentamount}</p>
+      `;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const method = methodSelect.value;
+      if (!method || !bookingDetails) {
+        alert("❌ Missing payment method or booking info.");
+        return;
+      }
+
+      // For Credit Card
+      if (method === "Credit Card") {
+        const cardNumber = document.getElementById('card-number').value.trim();
+        const expiry = document.getElementById('expiry').value.trim();
+        const cvv = document.getElementById('cvv').value.trim();
+        const cardName = document.getElementById('card-name').value.trim();
+        if (!cardNumber || !expiry || !cvv || !cardName) {
+          alert("❌ Please fill in all credit card details.");
+          return;
+        }
+      }
+
+      // For Online Banking
+      if (method === "Online Banking") {
+        const bank = document.getElementById('bank').value.trim();
+        const username = document.getElementById('online-username').value.trim();
+        const password = document.getElementById('online-password').value.trim();
+        if (!bank || !username || !password) {
+          alert("❌ Please fill in all online banking details.");
+          return;
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { error: paymentError } = await supabase
+        .from('payment')
+        .insert({
+          bookingid,
+          paymentmethod: method,
+          paymentamount: bookingDetails.paymentamount,
+          paymentdate: today,
+          paymentstatus: 'Paid'
+        });
+
+      if (paymentError) {
+        alert("❌ Payment failed: " + paymentError.message);
+        return;
+      }
+
+      const { error: bookingUpdateError } = await supabase
+      .from('booking')
+    .update({ 
+      paymentstatus: 'Paid',
+      bookingstatus: 'Confirmed'
+    })
+    .eq('bookingid', bookingid);
+
+      if (bookingUpdateError) {
+        alert("❌ Failed to update booking status: " + bookingUpdateError.message);
+        return;
+      }
+
+  alert('✅ Payment successful!');
+  window.location.href = 'client_dashboard.html';
+});
+
+    // Show relevant fields if reloaded with selection
+    document.addEventListener('DOMContentLoaded', () => {
+      methodSelect.dispatchEvent(new Event('change'));
+    });
+
+    loadBooking();
+  </script>
+</body>
+</html>
+

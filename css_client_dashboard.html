@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Client Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen px-4 py-8">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">🎉 Welcome to Your Dashboard</h2>
+
+    <!-- Service Packages -->
+    <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <h3 class="text-xl font-semibold text-blue-600 mb-4">📦 Browse Available Service Packages</h3>
+      <div id="packages" class="space-y-4 text-gray-700">Loading...</div>
+    </section>
+
+    <!-- Bookings -->
+    <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <h3 class="text-xl font-semibold text-blue-600 mb-4">📋 My Bookings</h3>
+      <div id="bookings" class="space-y-4 text-gray-700">Loading...</div>
+    </section>
+
+    <!-- Invoices -->
+    <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+      <h3 class="text-xl font-semibold text-blue-600 mb-4">🧾 My Invoices</h3>
+      <div id="invoices" class="space-y-4 text-gray-700">Loading...</div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    let clientId;
+
+    async function getClientId() {
+      const { data, error } = await supabase.auth.getUser();
+      return error || !data.user ? null : data.user.id;
+    }
+
+    async function loadPackages() {
+      const { data, error } = await supabase
+        .from('ServicePackage')
+        .select('*')
+        .eq('packageavailability', true);
+
+      const container = document.getElementById('packages');
+      if (error) return container.innerHTML = '❌ Failed to load packages';
+      if (!data.length) return container.innerHTML = 'No packages available';
+
+      container.innerHTML = data.map(pkg => `
+        <div class="border border-gray-200 rounded-md p-4 shadow-sm bg-gray-50">
+          <div class="font-semibold text-lg">${pkg.packagename} <span class="text-blue-500">(RM ${pkg.packageprice})</span></div>
+          <p class="text-sm text-gray-600 mb-3">${pkg.packagedescription}</p>
+          <button onclick="location.href='book.html?service=${pkg.serviceid}'"
+            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+            Book Now
+          </button>
+        </div>
+      `).join('');
+    }
+
+    async function loadBookings() {
+      const container = document.getElementById('bookings');
+
+      const { data, error } = await supabase
+        .from('booking')
+        .select('bookingid, bookingdate, bookingtime, bookingstatus, paymentamount, paymentstatus, ServicePackage(packagename)')
+        .eq('clientid', clientId);
+
+      if (error) return container.innerHTML = '❌ Failed to load bookings';
+      if (!data.length) return container.innerHTML = 'You have no bookings yet';
+
+      container.innerHTML = data.map(b => `
+        <div class="border border-gray-200 rounded-md p-4 shadow-sm bg-gray-50">
+          <div class="font-semibold">${b.ServicePackage?.packagename || 'Package'} | RM ${b.paymentamount}</div>
+          <div class="text-sm text-gray-600">
+            📅 ${b.bookingdate} 🕒 ${b.bookingtime}<br>
+            💼 ${b.bookingstatus} | 💳 ${b.paymentstatus}
+          </div>
+          ${b.paymentstatus === 'Unpaid' ? `
+            <button onclick="pay('${b.bookingid}')"
+              class="mt-2 bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition">
+              Pay Now
+            </button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function loadInvoices() {
+      const container = document.getElementById('invoices');
+
+      const { data, error } = await supabase
+        .from('invoice')
+        .select(`
+          invoiceid, invoiceamount, invoicedategenerated, invoicestatus,
+          booking(bookingid, bookingdate, bookingtime, ServicePackage(packagename))
+        `)
+        .eq('booking.clientid', clientId);
+
+      if (error) return container.innerHTML = '❌ Failed to load invoices';
+      if (!data.length) return container.innerHTML = 'No invoices available';
+
+      container.innerHTML = data.map(inv => `
+        <div class="border border-gray-200 rounded-md p-4 shadow-sm bg-gray-50">
+          <div class="font-semibold text-sm">🧾 Invoice ID: ${inv.invoiceid}</div>
+          <div class="text-sm text-gray-600">
+            📅 Generated: ${inv.invoicedategenerated}<br>
+            💵 Amount: RM ${inv.invoiceamount}<br>
+            📌 Status: ${inv.invoicestatus}<br>
+            📦 ${inv.booking?.ServicePackage?.packagename || 'Unknown'} on ${inv.booking?.bookingdate} ${inv.booking?.bookingtime || ''}
+          </div>
+          <button onclick="printInvoice('${inv.invoiceid}')"
+            class="mt-2 bg-gray-700 text-white px-4 py-1 rounded hover:bg-gray-800 transition">
+            Print
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function pay(bookingid) {
+      location.href = `payment.html?booking=${bookingid}`;
+    }
+
+    function printInvoice(id) {
+      alert('🖨️ Printing invoice: ' + id);
+    }
+
+    (async () => {
+      clientId = await getClientId();
+      if (!clientId) return alert("❌ You are not logged in.");
+      loadPackages();
+      loadBookings();
+      loadInvoices();
+    })();
+  </script>
+</body>
+</html>

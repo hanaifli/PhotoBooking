@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Client Dashboard</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .section { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+    .section h3 { margin-top: 0; }
+    .package, .booking, .invoice { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 6px; }
+    .btn { padding: 6px 12px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>🎉 Welcome to Your Dashboard</h2>
+
+  <div class="section" id="browse-section">
+    <h3>📦 Browse Available Service Packages</h3>
+    <div id="packages">Loading...</div>
+  </div>
+
+  <div class="section" id="booking-section">
+    <h3>📋 My Bookings</h3>
+    <div id="bookings">Loading...</div>
+  </div>
+
+  <div class="section" id="invoice-section">
+    <h3>🧾 My Invoices</h3>
+    <div id="invoices">Loading...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    let clientId;
+
+    async function getClientId() {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) return null;
+      return data.user.id;
+    }
+
+    async function loadPackages() {
+      const { data, error } = await supabase
+        .from('ServicePackage')
+        .select('*')
+        .eq('packageavailability', true);
+
+      const container = document.getElementById('packages');
+      if (error) return container.innerHTML = '❌ Failed to load packages';
+      if (!data.length) return container.innerHTML = 'No packages available';
+
+      container.innerHTML = data.map(pkg => `
+        <div class="package">
+          <strong>${pkg.packagename}</strong> (RM ${pkg.packageprice})<br>
+          ${pkg.packagedescription}<br>
+          <button class="btn" onclick="location.href='book.html?service=${pkg.serviceid}'">Book Now</button>
+        </div>
+      `).join('');
+    }
+
+    async function loadBookings() {
+      const container = document.getElementById('bookings');
+
+      const { data, error } = await supabase
+        .from('booking')
+        .select('bookingid, bookingdate, bookingtime, bookingstatus, paymentamount, paymentstatus, ServicePackage(packagename)')
+        .eq('clientid', clientId);
+
+      if (error) return container.innerHTML = '❌ Failed to load bookings';
+      if (!data.length) return container.innerHTML = 'You have no bookings yet';
+
+      container.innerHTML = data.map(b => `
+        <div class="booking">
+          📦 ${b.ServicePackage.packagename}<br>
+          📅 ${b.bookingdate} 🕒 ${b.bookingtime}<br>
+          💼 ${b.bookingstatus} | 💳 ${b.paymentstatus} | 💵 RM ${b.paymentamount}<br>
+          ${b.paymentstatus === 'Unpaid' ? `<button class="btn" onclick="pay('${b.bookingid}')">Pay Now</button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function loadInvoices() {
+      const container = document.getElementById('invoices');
+
+      const { data, error } = await supabase
+        .from('invoice')
+        .select(`invoiceid, invoiceamount, invoicedategenerated, invoicestatus, booking(bookingid, bookingdate, bookingtime, ServicePackage(packagename))`)
+        .eq('booking.clientid', clientId);
+
+      if (error) return container.innerHTML = '❌ Failed to load invoices';
+      if (!data.length) return container.innerHTML = 'No invoices available';
+
+      container.innerHTML = data.map(inv => `
+        <div class="invoice">
+          🧾 Invoice ID: ${inv.invoiceid}<br>
+          📅 Generated: ${inv.invoicedategenerated}<br>
+          💵 Amount: RM ${inv.invoiceamount}<br>
+          📌 Status: ${inv.invoicestatus}<br>
+          📦 ${inv.booking?.ServicePackage?.packagename || 'Unknown Package'} on ${inv.booking?.bookingdate} ${inv.booking?.bookingtime || ''}<br>
+          <button class="btn" onclick="printInvoice('${inv.invoiceid}')">Print</button>
+        </div>
+      `).join('');
+    }
+
+    function pay(bookingid) {
+      location.href = `payment.html?booking=${bookingid}`;
+    }
+
+    function printInvoice(id) {
+      alert('🖨️ Printing invoice: ' + id); // For real use: generate a printable invoice view
+    }
+
+    (async () => {
+      clientId = await getClientId();
+      if (!clientId) return alert("❌ You are not logged in.");
+      loadPackages();
+      loadBookings();
+      loadInvoices();
+    })();
+  </script>
+</body>
+</html>

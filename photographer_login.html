@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Photographer Login</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input, button { padding: 10px; margin-top: 10px; width: 250px; display: block; }
+  </style>
+</head>
+<body>
+  <h2>Photographer Login</h2>
+  <input type="email" id="email" placeholder="Email" required />
+  <input type="password" id="password" placeholder="Password" required />
+  <button onclick="login()">Login</button>
+  <p id="error" style="color: red;"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) return document.getElementById("error").textContent = "❌ Login failed: " + error.message;
+
+      const user = data.user;
+      const { data: photographer, error: pError } = await supabase
+        .from("photographer")
+        .select("photographerid")
+        .eq("photographerid", user.id)
+        .maybeSingle();
+
+      if (pError || !photographer) {
+        document.getElementById("error").textContent = "❌ Not a registered photographer.";
+        await supabase.auth.signOut();
+        return;
+      }
+
+      window.location.href = "photographer_dashboard.html";
+    }
+  </script>
+</body>
+</html>

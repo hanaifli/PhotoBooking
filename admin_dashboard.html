@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>System Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, padding 20px}
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 10px 0;
+      box-shadow: 2px 2px 10px #eee;
+    }
+    .card h3 {
+      margin: 0 0 10px;
+    }
+    .card button {
+      padding: 10px 15px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📋 System Admin Dashboard</h1>
+
+  <div class="card">
+    <h3>📸 Assign Photographer</h3>
+    <p>Assign available photographers to confirmed bookings.</p>
+    <button onclick="location.href='assign.html'">Open</button>
+  </div>
+
+  <div class="card">
+    <h3>🧾 Generate Invoice</h3>
+    <p>View bookings and generate downloadable invoices.</p>
+    <button onclick="location.href='admin_invoice.html'">Open</button>
+  </div>
+
+  <div class="card">
+    <h3>🎯 Manage Service Packages</h3>
+    <p>Add, edit, or delete photography service packages.</p>
+    <button onclick="location.href='manage_packages.html'">Open</button>
+  </div>
+
+  <div class="card">
+    <h3>🔄 Update Booking Status</h3>
+    <p>Update booking statuses such as Confirmed or Completed.</p>
+    <button onclick="location.href='manage_bookings.html'">Open</button>
+  </div>
+
+  <div class="card">
+    <h3>💳 View Payment Records</h3>
+    <p>View all payments and export reports.</p>
+    <button onclick="location.href='admin_viewpayments.html'">Open</button>
+  </div>
+
+</body>
+</html>

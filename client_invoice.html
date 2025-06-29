@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Invoice</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .card {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin-top: 20px;
+      border-radius: 10px;
+      background-color: #f9f9f9;
+      box-shadow: 2px 2px 8px #eee;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 15px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>🧾 Your Invoice</h2>
+  <div id="invoice">Loading…</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const invoiceDiv = document.getElementById('invoice');
+    const bookingid = new URLSearchParams(window.location.search).get('booking');
+
+    async function loadInvoice() {
+      if (!bookingid) return invoiceDiv.textContent = "❌ Missing booking ID.";
+
+      const { data, error } = await supabase
+        .from('invoice')
+        .select(`
+          invoiceid, invoiceamount, invoicedategenerated, invoicestatus,
+          booking(bookingdate, bookingtime, paymentstatus, client(clientname, clientaddress, clientphonenumber), ServicePackage(packagename))
+        `)
+        .eq('bookingid', bookingid)
+        .maybeSingle();
+
+      if (error || !data) {
+        invoiceDiv.textContent = "❌ Failed to load invoice.";
+        console.error("Invoice error:", error);
+        return;
+      }
+
+      const inv = data;
+      const b = data.booking;
+      const c = b.client;
+      const pkg = b.ServicePackage;
+      const invoiceCode = "INV-" + bookingid.slice(0, 6).toUpperCase();
+
+      invoiceDiv.innerHTML = `
+        <div class="card">
+          <p><strong>Invoice ID:</strong> ${invoiceCode}</p>
+          <p><strong>Generated Date:</strong> ${inv.invoicedategenerated}</p>
+
+          <hr>
+          <p><strong>Client:</strong><br>
+            ${c.clientname}<br>
+            ${c.clientaddress}<br>
+            ${c.clientphonenumber}</p>
+
+          <p><strong>Package:</strong> ${pkg.packagename}</p>
+          <p><strong>Booking:</strong> ${b.bookingdate} at ${b.bookingtime}</p>
+
+          <p><strong>Amount:</strong> RM ${inv.invoiceamount}</p>
+          <p><strong>Status:</strong> ${inv.invoicestatus}</p>
+
+          <button onclick="payNow()">💳 Proceed to Payment</button>
+        </div>
+      `;
+    }
+
+    function payNow() {
+      window.location.href = `payment.html?booking=${bookingid}`;
+    }
+
+    loadInvoice();
+  </script>
+</body>
+</html>

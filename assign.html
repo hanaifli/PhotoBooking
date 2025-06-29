@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Assign Photographer</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .booking-card {
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 2px 2px 8px #eee;
+    }
+    select, input[type="text"] {
+      margin: 5px 0;
+      padding: 5px;
+    }
+    button {
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Assign Photographer to Bookings</h2>
+  <div id="assignments">Loading…</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+<script>
+  async function loadAll() {
+    const wrap = document.getElementById("assignments");
+    wrap.textContent = "🔄 Loading…";
+
+    // No aliases, no !fkey
+    const { data: bookings, error: bErr } = await supabase
+      .from('booking')
+      .select(`
+        bookingid, bookingdate, bookingtime, bookingstatus,
+        ServicePackage(packagename),
+        client(clientname, clientphonenumber, clientaddress)
+      `)
+      .eq('bookingstatus', 'Confirmed');
+
+    if (bErr) {
+      wrap.textContent = "❌ Booking error: " + bErr.message;
+      return;
+    }
+
+    const { data: assigned } = await supabase
+      .from('assignment')
+      .select('bookingid');
+
+    const assignedIds = assigned.map(x => x.bookingid);
+    const pending = bookings.filter(b => !assignedIds.includes(b.bookingid));
+
+    if (!pending.length) {
+      wrap.textContent = "✅ No unassigned bookings.";
+      return;
+    }
+
+    const { data: photos, error: pErr } = await supabase
+      .from('photographer')
+      .select('photographerid, photographername, photographerspeciality');
+
+    if (pErr) {
+      wrap.textContent = "❌ Photographer error: " + pErr.message;
+      return;
+    }
+
+    wrap.innerHTML = pending.map(b => `
+      <div class="booking-card">
+        <strong>${b.ServicePackage?.packagename || "Unknown Package"}</strong><br>
+        👤 ${b.client?.clientname || "Unknown"} 🏠 ${b.client?.clientaddress || ""} 📞 ${b.client?.clientphonenumber || ""}<br>
+        📅 ${b.bookingdate} 🕒 ${b.bookingtime}<br><br>
+
+        <label>Photographer:</label><br>
+        <select id="p-${b.bookingid}">
+          <option value="">-- Select Photographer --</option>
+          ${photos.map(p => `
+            <option value="${p.photographerid}">
+              ${p.photographername} (${p.photographerspeciality})
+            </option>
+          `).join('')}
+        </select><br>
+
+        <label>Notes:</label><br>
+        <input id="n-${b.bookingid}" placeholder="Assignment notes"><br>
+
+        <button onclick="assign('${b.bookingid}')">Assign</button>
+      </div>
+    `).join('');
+  }
+
+  async function assign(bookingid) {
+    const pid = document.getElementById(`p-${bookingid}`).value;
+    const notes = document.getElementById(`n-${bookingid}`).value;
+    if (!pid) return alert("Please select a photographer.");
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const { error } = await supabase
+      .from('assignment')
+      .insert({
+        bookingid,
+        photographerid: pid,
+        assignmentdates: today,
+        assignmentnotes: notes
+      });
+
+    if (error) {
+      alert("❌ " + error.message);
+    } else {
+      alert("✅ Photographer assigned.");
+      loadAll();
+    }
+  }
+
+  loadAll();
+</script>
+</body>
+</html>
