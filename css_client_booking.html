@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Bookings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen px-4 py-8">
+  <div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">📋 My Bookings</h2>
+
+    <div id="bookings" class="space-y-4 text-gray-700">Loading...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const bookingsDiv = document.getElementById("bookings");
+
+    async function loadBookings() {
+      bookingsDiv.innerHTML = "🔄 Loading bookings...";
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        bookingsDiv.innerHTML = "❌ Not logged in.";
+        return;
+      }
+
+      const clientid = userData.user.id;
+      console.log("👤 Logged-in user ID:", clientid);
+
+      const { data, error } = await supabase
+        .from("booking")
+        .select(`
+          bookingid, bookingdate, bookingtime, bookingstatus, paymentamount, paymentstatus,
+          ServicePackage:serviceid(packagename)
+        `)
+        .eq("clientid", clientid)
+        .order("bookingdate", { ascending: false });
+
+      console.log("📦 Booking data:", data);
+      if (error) {
+        console.error("❌ Supabase error:", error.message);
+        bookingsDiv.innerHTML = "❌ Error loading bookings.";
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        bookingsDiv.innerHTML = "You have no bookings yet.";
+        return;
+      }
+
+      bookingsDiv.innerHTML = data.map(b => `
+        <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-md">
+          <div class="font-semibold text-lg text-blue-600">${b.ServicePackage?.packagename || "Package"}</div>
+          <div class="text-sm text-gray-600 mt-1">
+            📅 ${b.bookingdate} &nbsp; 🕒 ${b.bookingtime}<br>
+            💼 Status: ${b.bookingstatus} &nbsp; 💳 Payment: ${b.paymentstatus}<br>
+            💵 RM ${b.paymentamount}
+          </div>
+
+          <div class="mt-3 space-x-2">
+            ${(b.bookingstatus === "Pending" || b.bookingstatus === "Confirmed") ? `
+              <button onclick="cancelBooking('${b.bookingid}')"
+                class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">
+                Cancel
+              </button>
+            ` : ""}
+
+            ${b.paymentstatus === "Unpaid" ? `
+              <button onclick="payNow('${b.bookingid}')"
+                class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+                Pay Now
+              </button>
+            ` : ""}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function cancelBooking(id) {
+      if (!confirm("Are you sure you want to cancel this booking?")) return;
+
+      const { error } = await supabase
+        .from("booking")
+        .update({ bookingstatus: "Cancelled" })
+        .eq("bookingid", id);
+
+      if (error) {
+        alert("❌ Failed to cancel: " + error.message);
+        return;
+      }
+
+      alert("✅ Booking cancelled.");
+      loadBookings();
+    }
+
+    function payNow(bookingid) {
+      window.location.href = `payment.html?booking=${bookingid}`;
+    }
+
+    loadBookings();
+  </script>
+</body>
+</html>
