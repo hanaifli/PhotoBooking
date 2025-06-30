@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Client Signup</title>
+</head>
+<body>
+  <h2>Create Client Account</h2>
+  <form id="signup-form">
+    <input type="text" id="name" placeholder="Full Name" required><br>
+    <input type="email" id="email" placeholder="Email" required><br>
+    <input type="password" id="password" placeholder="Password" required><br>
+    <input type="text" id="phone" placeholder="Phone Number"><br>
+    <input type="text" id="address" placeholder="Address"><br>
+    <button type="submit">Sign Up</button>
+  </form>
+
+  <!-- ✅ Add this below the form -->
+  <p>Already have an account? <a href="login.html">Login here</a></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+
+  <script>
+    const form = document.getElementById('signup-form');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const phone = document.getElementById('phone').value;
+      const address = document.getElementById('address').value;
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        alert('Signup error: ' + error.message);
+        return;
+      }
+
+      const user = data.user;
+      if (!user) {
+        alert('Signup failed: No user returned.');
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from('client')
+        .insert({
+          clientid: user.id,
+          clientemail: email,
+          clientname: name,
+          clientphonenumber: phone,
+          clientaddress: address
+        });
+
+      if (insertError) {
+        alert('Error saving client profile: ' + insertError.message);
+        return;
+      }
+
+      alert('Signup successful!');
+      window.location.href = 'browse.html';
+    });
+  </script>
+</body>
+</html>
