@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Service Packages</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 p-6 min-h-screen font-sans">
+  <div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6">🎯 Manage Service Packages</h2>
+
+    <div id="package-list" class="space-y-6 mb-10">Loading packages...</div>
+
+    <h3 class="text-2xl font-semibold mb-4">➕ Add New Package</h3>
+    <div class="bg-white rounded-xl shadow-md p-6 border mb-10">
+      <input id="new-name" placeholder="Package Name" class="w-full border p-2 rounded mb-3" />
+      <textarea id="new-desc" placeholder="Package Description" class="w-full border p-2 rounded mb-3"></textarea>
+      <input id="new-price" type="number" placeholder="Price (RM)" class="w-full border p-2 rounded mb-3" />
+      <label class="inline-flex items-center mb-4">
+        <input id="new-available" type="checkbox" class="mr-2" />
+        Available
+      </label><br>
+      <button onclick="addPackage()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+        ➕ Add Package
+      </button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    async function loadPackages() {
+      const div = document.getElementById("package-list");
+      div.textContent = "Loading...";
+
+      const { data, error } = await supabase.from("ServicePackage").select("*");
+
+      if (error) {
+        div.textContent = "❌ Failed to load packages: " + error.message;
+        return;
+      }
+
+      if (!data.length) {
+        div.textContent = "No service packages found.";
+        return;
+      }
+
+      div.innerHTML = data.map(pkg => `
+        <div class="bg-white rounded-xl shadow p-6 border" id="pkg-${pkg.serviceid}">
+          <input value="${pkg.packagename}" id="name-${pkg.serviceid}" class="w-full border p-2 rounded mb-3" />
+          <textarea id="desc-${pkg.serviceid}" class="w-full border p-2 rounded mb-3">${pkg.packagedescription}</textarea>
+          <input type="number" value="${pkg.packageprice}" id="price-${pkg.serviceid}" class="w-full border p-2 rounded mb-3" />
+          <label class="inline-flex items-center mb-4">
+            <input type="checkbox" id="avail-${pkg.serviceid}" ${pkg.packageavailability ? "checked" : ""} class="mr-2" />
+            Available
+          </label><br>
+          <button onclick="updatePackage('${pkg.serviceid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mr-2">
+            💾 Save
+          </button>
+          <button onclick="deletePackage('${pkg.serviceid}')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">
+            🗑️ Delete
+          </button>
+        </div>
+      `).join('');
+    }
+
+    async function addPackage() {
+      const name = document.getElementById("new-name").value.trim();
+      const desc = document.getElementById("new-desc").value.trim();
+      const price = parseFloat(document.getElementById("new-price").value);
+      const available = document.getElementById("new-available").checked;
+
+      if (!name || isNaN(price)) {
+        alert("❌ Please enter a name and valid price.");
+        return;
+      }
+
+      const { error } = await supabase.from("ServicePackage").insert([
+        { packagename: name, packagedescription: desc, packageprice: price, packageavailability: available }
+      ]);
+
+      if (error) {
+        alert("❌ Failed to add package: " + error.message);
+      } else {
+        alert("✅ Package added.");
+        loadPackages();
+        document.getElementById("new-name").value = "";
+        document.getElementById("new-desc").value = "";
+        document.getElementById("new-price").value = "";
+        document.getElementById("new-available").checked = false;
+      }
+    }
+
+    async function updatePackage(id) {
+      const name = document.getElementById(`name-${id}`).value.trim();
+      const desc = document.getElementById(`desc-${id}`).value.trim();
+      const price = parseFloat(document.getElementById(`price-${id}`).value);
+      const available = document.getElementById(`avail-${id}`).checked;
+
+      if (!name || isNaN(price)) {
+        alert("❌ Invalid input.");
+        return;
+      }
+
+      const { error } = await supabase.from("ServicePackage")
+        .update({
+          packagename: name,
+          packagedescription: desc,
+          packageprice: price,
+          packageavailability: available
+        })
+        .eq("serviceid", id);
+
+      if (error) {
+        alert("❌ Update failed: " + error.message);
+      } else {
+        alert("✅ Package updated.");
+        loadPackages();
+      }
+    }
+
+    async function deletePackage(id) {
+      if (!confirm("Delete this package?")) return;
+
+      const { error } = await supabase.from("ServicePackage").delete().eq("serviceid", id);
+      if (error) {
+        alert("❌ Delete failed: " + error.message);
+      } else {
+        alert("✅ Package deleted.");
+        loadPackages();
+      }
+    }
+
+    loadPackages();
+  </script>
+</body>
+</html>

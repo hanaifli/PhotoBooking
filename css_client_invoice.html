@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Invoice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen px-4 py-8">
+  <div class="max-w-3xl mx-auto">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">🧾 Your Invoice</h2>
+
+    <div id="invoice" class="text-gray-700">Loading…</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const invoiceDiv = document.getElementById('invoice');
+    const bookingid = new URLSearchParams(window.location.search).get('booking');
+
+    async function loadInvoice() {
+      if (!bookingid) return invoiceDiv.textContent = "❌ Missing booking ID.";
+
+      const { data, error } = await supabase
+        .from('invoice')
+        .select(`
+          invoiceid, invoiceamount, invoicedategenerated, invoicestatus,
+          booking(bookingdate, bookingtime, paymentstatus, client(clientname, clientaddress, clientphonenumber), ServicePackage(packagename))
+        `)
+        .eq('bookingid', bookingid)
+        .maybeSingle();
+
+      if (error || !data) {
+        invoiceDiv.textContent = "❌ Failed to load invoice.";
+        console.error("Invoice error:", error);
+        return;
+      }
+
+      const inv = data;
+      const b = data.booking;
+      const c = b.client;
+      const pkg = b.ServicePackage;
+      const invoiceCode = "INV-" + bookingid.slice(0, 6).toUpperCase();
+
+      invoiceDiv.innerHTML = `
+        <div class="bg-white border border-gray-300 shadow-md rounded-lg p-6">
+          <div class="mb-4">
+            <p class="text-lg font-semibold">📄 Invoice ID: <span class="text-blue-600">${invoiceCode}</span></p>
+            <p class="text-sm text-gray-500">Generated: ${inv.invoicedategenerated}</p>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="mb-4">
+            <p class="font-semibold">👤 Client Information</p>
+            <p>${c.clientname}<br>${c.clientaddress}<br>${c.clientphonenumber}</p>
+          </div>
+
+          <div class="mb-4">
+            <p class="font-semibold">📦 Package:</p>
+            <p>${pkg.packagename}</p>
+          </div>
+
+          <div class="mb-4">
+            <p class="font-semibold">📅 Booking:</p>
+            <p>${b.bookingdate} at ${b.bookingtime}</p>
+          </div>
+
+          <div class="mb-4">
+            <p class="font-semibold">💵 Amount:</p>
+            <p>RM ${inv.invoiceamount}</p>
+          </div>
+
+          <div class="mb-4">
+            <p class="font-semibold">📌 Status:</p>
+            <p>${inv.invoicestatus}</p>
+          </div>
+
+          <button onclick="payNow()"
+            class="mt-4 bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition">
+            💳 Proceed to Payment
+          </button>
+        </div>
+      `;
+    }
+
+    function payNow() {
+      window.location.href = `css_payment.html?booking=${bookingid}`;
+    }
+
+    loadInvoice();
+  </script>
+</body>
+</html>

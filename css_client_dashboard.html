@@ -47,16 +47,23 @@
       if (error) return container.innerHTML = '❌ Failed to load packages';
       if (!data.length) return container.innerHTML = 'No packages available';
 
-      container.innerHTML = data.map(pkg => `
-        <div class="border border-gray-200 rounded-md p-4 shadow-sm bg-gray-50">
-          <div class="font-semibold text-lg">${pkg.packagename} <span class="text-blue-500">(RM ${pkg.packageprice})</span></div>
-          <p class="text-sm text-gray-600 mb-3">${pkg.packagedescription}</p>
-          <button onclick="location.href='book.html?service=${pkg.serviceid}'"
-            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-            Book Now
-          </button>
-        </div>
-      `).join('');
+      container.innerHTML = data.map(pkg => {
+        const descriptionLines = pkg.packagedescription
+       .split('\\n')  // Fix: handle stored literal \n
+       .map(line => `<div class="text-sm text-gray-600">• ${line.trim()}</div>`)
+       .join('');
+
+        return `
+          <div class="border border-gray-200 rounded-md p-4 shadow-sm bg-gray-50">
+            <div class="font-semibold text-lg">${pkg.packagename} <span class="text-blue-500">(RM ${pkg.packageprice})</span></div>
+            <div class="mt-2 space-y-1">${descriptionLines}</div>
+            <button onclick="location.href='css_book.html?service=${pkg.serviceid}'"
+              class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+              Book Now
+            </button>
+          </div>
+        `;
+      }).join('');
     }
 
     async function loadBookings() {
@@ -118,7 +125,7 @@
     }
 
     function pay(bookingid) {
-      location.href = `payment.html?booking=${bookingid}`;
+      location.href = `css_payment.html?booking=${bookingid}`;
     }
 
     function printInvoice(id) {

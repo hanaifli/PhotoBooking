@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Make Payment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen px-4 py-8">
+  <div class="max-w-2xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">💳 Make Payment</h2>
+
+    <div id="payment-info" class="bg-white p-6 rounded-lg shadow mb-6 text-gray-700">Loading...</div>
+
+    <form id="payment-form" class="bg-white p-6 rounded-lg shadow space-y-4">
+      <div>
+        <label for="method" class="block font-medium text-gray-700 mb-1">Payment Method:</label>
+        <select id="method" required
+          class="w-full border border-gray-300 rounded px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Select method</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="Online Banking">Online Banking</option>
+        </select>
+      </div>
+
+      <!-- Credit Card Section -->
+      <div id="credit-card-fields" class="hidden space-y-2">
+        <input type="text" id="card-number" placeholder="Card Number"
+          class="w-full border rounded px-3 py-2" />
+        <input type="text" id="expiry" placeholder="Expiry (MM/YY)"
+          class="w-full border rounded px-3 py-2" />
+        <input type="text" id="cvv" placeholder="CVV"
+          class="w-full border rounded px-3 py-2" />
+        <input type="text" id="card-name" placeholder="Name on Card"
+          class="w-full border rounded px-3 py-2" />
+      </div>
+
+      <!-- Online Banking Section -->
+      <div id="online-banking-fields" class="hidden space-y-2">
+        <select id="bank" class="w-full border rounded px-3 py-2">
+          <option value="">Select Bank</option>
+          <option value="Maybank2u">Maybank2u</option>
+          <option value="Public Bank">Public Bank</option>
+          <option value="Bank Islam">Bank Islam</option>
+        </select>
+        <input type="text" id="online-username" placeholder="Bank Username"
+          class="w-full border rounded px-3 py-2" />
+        <input type="password" id="online-password" placeholder="Bank Password"
+          class="w-full border rounded px-3 py-2" />
+      </div>
+
+      <button type="submit"
+        class="w-full bg-green-600 text-white font-semibold py-2 rounded hover:bg-green-700 transition">
+        Proceed to Payment
+      </button>
+    </form>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bookingid = params.get('booking');
+    const paymentInfoDiv = document.getElementById('payment-info');
+    const form = document.getElementById('payment-form');
+
+    const methodSelect = document.getElementById('method');
+    const cardFields = document.getElementById('credit-card-fields');
+    const bankingFields = document.getElementById('online-banking-fields');
+
+    function toggleRequired(container, isRequired) {
+      const inputs = container.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        if (isRequired) {
+          input.setAttribute('required', 'true');
+        } else {
+          input.removeAttribute('required');
+        }
+      });
+    }
+
+    methodSelect.addEventListener('change', () => {
+      cardFields.classList.add('hidden');
+      bankingFields.classList.add('hidden');
+      toggleRequired(cardFields, false);
+      toggleRequired(bankingFields, false);
+
+      if (methodSelect.value === 'Credit Card') {
+        cardFields.classList.remove('hidden');
+        toggleRequired(cardFields, true);
+      } else if (methodSelect.value === 'Online Banking') {
+        bankingFields.classList.remove('hidden');
+        toggleRequired(bankingFields, true);
+      }
+    });
+
+    let bookingDetails = null;
+
+    async function loadBooking() {
+      const { data, error } = await supabase
+        .from('booking')
+        .select('bookingid, paymentamount, bookingdate, bookingtime')
+        .eq('bookingid', bookingid)
+        .maybeSingle();
+
+      if (error || !data) {
+        paymentInfoDiv.innerHTML = '<p class="text-red-600">❌ Booking not found.</p>';
+        form.style.display = 'none';
+        return;
+      }
+
+      bookingDetails = data;
+      paymentInfoDiv.innerHTML = `
+        <p><strong>Booking ID:</strong> ${data.bookingid}</p>
+        <p><strong>Date:</strong> ${data.bookingdate}</p>
+        <p><strong>Time:</strong> ${data.bookingtime}</p>
+        <p><strong>Amount:</strong> RM ${data.paymentamount}</p>
+      `;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const method = methodSelect.value;
+      if (!method || !bookingDetails) {
+        alert("❌ Missing payment method or booking info.");
+        return;
+      }
+
+      if (method === "Credit Card") {
+        const cardNumber = document.getElementById('card-number').value.trim();
+        const expiry = document.getElementById('expiry').value.trim();
+        const cvv = document.getElementById('cvv').value.trim();
+        const cardName = document.getElementById('card-name').value.trim();
+        if (!cardNumber || !expiry || !cvv || !cardName) {
+          alert("❌ Please fill in all credit card details.");
+          return;
+        }
+      }
+
+      if (method === "Online Banking") {
+        const bank = document.getElementById('bank').value.trim();
+        const username = document.getElementById('online-username').value.trim();
+        const password = document.getElementById('online-password').value.trim();
+        if (!bank || !username || !password) {
+          alert("❌ Please fill in all online banking details.");
+          return;
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { error: paymentError } = await supabase
+        .from('payment')
+        .insert({
+          bookingid,
+          paymentmethod: method,
+          paymentamount: bookingDetails.paymentamount,
+          paymentdate: today,
+          paymentstatus: 'Paid'
+        });
+
+      if (paymentError) {
+        alert("❌ Payment failed: " + paymentError.message);
+        return;
+      }
+
+      const { error: bookingUpdateError } = await supabase
+        .from('booking')
+        .update({
+          paymentstatus: 'Paid',
+          bookingstatus: 'Confirmed'
+        })
+        .eq('bookingid', bookingid);
+
+      if (bookingUpdateError) {
+        alert("❌ Failed to update booking status: " + bookingUpdateError.message);
+        return;
+      }
+
+      alert('✅ Payment successful!');
+      window.location.href = 'css_client_dashboard.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      methodSelect.dispatchEvent(new Event('change'));
+    });
+
+    loadBooking();
+  </script>
+</body>
+</html>

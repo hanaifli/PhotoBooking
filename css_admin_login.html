@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+    <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">🔐 Admin Login</h2>
+
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700">Email:</label>
+        <input type="email" id="email" required
+          class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700">Password:</label>
+        <input type="password" id="password" required
+          class="w-full px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <button type="submit"
+        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+        Login
+      </button>
+    </form>
+
+    <p id="error" class="text-red-600 text-sm mt-4 text-center"></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+    const errorDisplay = document.getElementById('error');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorDisplay.textContent = "";
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        errorDisplay.textContent = "❌ Login failed: " + error.message;
+        return;
+      }
+
+      const user = data.user;
+
+      // ✅ Check if user is in SystemAdmin table
+      const { data: admin, error: adminError } = await supabase
+        .from("systemadmin")
+        .select("adminid")
+        .eq("adminid", user.id)
+        .maybeSingle();
+
+      if (adminError || !admin) {
+        errorDisplay.textContent = "❌ Access denied: You are not an admin.";
+        await supabase.auth.signOut(); // log out non-admin
+        return;
+      }
+
+      // ✅ Redirect to dashboard
+      window.location.href = "css_admin_dashboard.html";
+    });
+  </script>
+</body>
+</html>

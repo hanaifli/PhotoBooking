@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Book a Package</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen px-4 py-8">
+  <div class="max-w-xl mx-auto">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">📸 Book Your Photography Package</h2>
+
+    <div id="package-info" class="bg-white p-6 rounded-lg shadow mb-6 text-gray-700">Loading...</div>
+
+    <form id="booking-form" class="bg-white p-6 rounded-lg shadow space-y-4">
+      <div>
+        <label for="date" class="block font-medium text-gray-700 mb-1">Select Date:</label>
+        <input type="date" id="date" required class="w-full border rounded px-3 py-2 shadow-sm" />
+      </div>
+      <div>
+        <label for="time" class="block font-medium text-gray-700 mb-1">Select Time:</label>
+        <input type="time" id="time" required class="w-full border rounded px-3 py-2 shadow-sm" />
+      </div>
+      <button id="submit-btn" type="submit"
+        class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+        Confirm Booking
+      </button>
+    </form>
+
+    <p id="loading-msg" class="mt-4 text-center text-gray-500 hidden">⏳ Booking in progress...</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const serviceid = params.get("service");
+    const pkgDiv = document.getElementById("package-info");
+    const form = document.getElementById("booking-form");
+    const submitBtn = document.getElementById("submit-btn");
+    const loadingMsg = document.getElementById("loading-msg");
+
+    let packageprice = 0;
+
+    async function loadPackage() {
+      const { data, error } = await supabase
+        .from('ServicePackage')
+        .select('*')
+        .eq('serviceid', serviceid)
+        .single();
+
+      if (error || !data) {
+        pkgDiv.innerHTML = "<p class='text-red-600'>❌ Package not found.</p>";
+        console.error("Package load error:", error);
+        return;
+      }
+
+      packageprice = data.packageprice;
+      pkgDiv.innerHTML = `
+        <h3 class="text-xl font-semibold text-blue-600">${data.packagename} <span class="text-gray-700">(RM ${data.packageprice})</span></h3>
+        <p class="mt-2 text-gray-600 text-sm">${data.packagedescription.replace(/\n/g, "<br>")}</p>
+      `;
+    }
+
+    async function isSlotTaken(date, time) {
+      const normalizedTime = time.length === 5 ? time + ":00" : time;
+
+      const { data, error } = await supabase
+        .from('booking')
+        .select('bookingid')
+        .eq('serviceid', serviceid)
+        .eq('bookingdate', date)
+        .eq('bookingtime', normalizedTime);
+
+      if (error) {
+        console.error("Slot check error:", error);
+        return false;
+      }
+
+      return data.length > 0;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Booking...";
+      loadingMsg.classList.remove("hidden");
+
+      const date = document.getElementById("date").value;
+      let time = document.getElementById("time").value;
+      if (!date || !time) {
+        alert("Please select both date and time.");
+        resetForm();
+        return;
+      }
+      if (time.length === 5) time += ":00";
+
+      const slotTaken = await isSlotTaken(date, time);
+      if (slotTaken) {
+        alert("❌ This slot is already booked. Please choose another.");
+        resetForm();
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        alert("❌ User not authenticated.");
+        console.error("Auth error:", userError);
+        resetForm();
+        return;
+      }
+
+      const clientid = userData.user.id;
+
+      const { data: insertedBooking, error: bookingError } = await supabase
+        .from("booking")
+        .insert({
+          clientid,
+          serviceid,
+          bookingdate: date,
+          bookingtime: time,
+          paymentamount: packageprice,
+          bookingstatus: "Pending",
+          paymentstatus: "Unpaid"
+        })
+        .select("bookingid")
+        .single();
+
+      if (bookingError) {
+        alert("❌ Booking failed: " + bookingError.message);
+        console.error("Booking insert error:", bookingError);
+        resetForm();
+        return;
+      }
+
+      const { error: invoiceError } = await supabase
+        .from("invoice")
+        .insert({
+          bookingid: insertedBooking.bookingid,
+          invoiceamount: packageprice,
+          invoicedategenerated: new Date().toISOString().split('T')[0],
+          invoicestatus: "Unpaid"
+        });
+
+      if (invoiceError) {
+        alert("⚠️ Booking succeeded but invoice creation failed: " + invoiceError.message);
+        console.error("Invoice error:", invoiceError);
+        resetForm();
+        return;
+      }
+
+      alert("✅ Booking successful! Proceeding to invoice...");
+      window.location.href = `css_client_invoice.html?booking=${insertedBooking.bookingid}`;
+    });
+
+    function resetForm() {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Confirm Booking";
+      loadingMsg.classList.add("hidden");
+    }
+
+    loadPackage();
+  </script>
+</body>
+</html>

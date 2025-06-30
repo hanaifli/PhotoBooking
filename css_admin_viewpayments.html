@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>View Payment Records</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6 min-h-screen">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6 text-gray-800">💳 Payment Records</h2>
+
+    <div class="flex flex-wrap items-center gap-4 mb-4">
+      <label class="text-gray-700">
+        Filter by Status:
+        <select id="statusFilter" onchange="loadPayments()" class="ml-2 p-2 rounded border">
+          <option value="">All</option>
+          <option value="Paid">Paid</option>
+          <option value="Unpaid">Unpaid</option>
+        </select>
+      </label>
+
+      <button onclick="exportCSV()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+        ⬇️ Export CSV
+      </button>
+    </div>
+
+    <div id="payments" class="bg-white rounded-lg shadow p-4 overflow-x-auto">Loading...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    let latestData = [];
+
+    async function loadPayments() {
+      const status = document.getElementById("statusFilter").value;
+      const container = document.getElementById("payments");
+      container.textContent = "Loading...";
+
+      let query = supabase
+        .from("payment")
+        .select(`
+          paymentid,
+          paymentamount,
+          paymentmethod,
+          paymentstatus,
+          paymentdate,
+          booking:bookingid (
+            bookingdate,
+            ServicePackage:serviceid (
+              packagename
+            ),
+            client:clientid (
+              clientname
+            )
+          )
+        `)
+        .order("paymentdate", { ascending: false });
+
+      if (status) {
+        query = query.eq("paymentstatus", status);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        container.textContent = "❌ Error: " + error.message;
+        return;
+      }
+
+      latestData = data;
+
+      if (!data.length) {
+        container.textContent = "No payment records found.";
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="min-w-full table-auto border border-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="border px-4 py-2 text-left">Client</th>
+              <th class="border px-4 py-2 text-left">Package</th>
+              <th class="border px-4 py-2 text-left">Booking Date</th>
+              <th class="border px-4 py-2 text-left">Amount (RM)</th>
+              <th class="border px-4 py-2 text-left">Method</th>
+              <th class="border px-4 py-2 text-left">Status</th>
+              <th class="border px-4 py-2 text-left">Payment Date</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white">
+            ${data.map(p => `
+              <tr class="hover:bg-gray-50">
+                <td class="border px-4 py-2">${p.booking?.client?.clientname || "-"}</td>
+                <td class="border px-4 py-2">${p.booking?.ServicePackage?.packagename || "-"}</td>
+                <td class="border px-4 py-2">${p.booking?.bookingdate || "-"}</td>
+                <td class="border px-4 py-2">${p.paymentamount}</td>
+                <td class="border px-4 py-2">${p.paymentmethod}</td>
+                <td class="border px-4 py-2">${p.paymentstatus}</td>
+                <td class="border px-4 py-2">${p.paymentdate || "-"}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function exportCSV() {
+      if (!latestData.length) return alert("No data to export.");
+
+      const rows = [
+        ["Client", "Package", "Booking Date", "Amount", "Method", "Status", "Payment Date"],
+        ...latestData.map(p => [
+          p.booking?.client?.clientname || "-",
+          p.booking?.ServicePackage?.packagename || "-",
+          p.booking?.bookingdate || "-",
+          p.paymentamount,
+          p.paymentmethod,
+          p.paymentstatus,
+          p.paymentdate || "-"
+        ])
+      ];
+
+      const csvContent = rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "payment_records.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    loadPayments();
+  </script>
+</body>
+</html>

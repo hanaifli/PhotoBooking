@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manage Bookings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen p-6 font-sans">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6">🔄 Manage Bookings</h2>
+
+    <div class="mb-4">
+      <label for="filter" class="font-medium">Filter by Status:</label>
+      <select id="filter" onchange="loadBookings()" class="ml-2 p-2 border rounded">
+        <option value="">All</option>
+        <option value="Pending">Pending</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="Completed">Completed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div id="bookings" class="space-y-6">Loading bookings...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    async function loadBookings() {
+      const statusFilter = document.getElementById("filter").value;
+      const container = document.getElementById("bookings");
+      container.textContent = "Loading...";
+
+      let query = supabase
+        .from("booking")
+        .select("*")
+        .order("bookingdate", { ascending: false });
+
+      if (statusFilter) {
+        query = query.eq("bookingstatus", statusFilter);
+      }
+
+      const { data: bookings, error } = await query;
+
+      if (error) {
+        container.textContent = "❌ Error loading bookings: " + error.message;
+        return;
+      }
+
+      if (!bookings.length) {
+        container.textContent = "No bookings found.";
+        return;
+      }
+
+      const clientIds = [...new Set(bookings.map(b => b.clientid))];
+      const serviceIds = [...new Set(bookings.map(b => b.serviceid))];
+
+      const { data: clients } = await supabase
+        .from("client")
+        .select("clientid, clientname, clientphonenumber, clientaddress")
+        .in("clientid", clientIds);
+
+      const { data: services } = await supabase
+        .from("ServicePackage")
+        .select("serviceid, packagename")
+        .in("serviceid", serviceIds);
+
+      const clientMap = Object.fromEntries((clients || []).map(c => [c.clientid, c]));
+      const serviceMap = Object.fromEntries((services || []).map(s => [s.serviceid, s]));
+
+      container.innerHTML = bookings.map(b => {
+        const client = clientMap[b.clientid] || {};
+        const service = serviceMap[b.serviceid] || {};
+
+        return `
+          <div class="bg-white rounded-xl shadow-md p-6 border">
+            <div class="mb-2 text-xl font-semibold text-blue-700">
+              ${service.packagename || "Unknown Package"}
+            </div>
+            <div class="text-sm mb-2">
+              👤 ${client.clientname || "Client"}<br>
+              📞 ${client.clientphonenumber || "-"}<br>
+              🏠 ${client.clientaddress || "-"}<br>
+              📅 ${b.bookingdate} 🕒 ${b.bookingtime}
+            </div>
+
+            <div class="flex items-center gap-4 mt-2">
+              <label for="status-${b.bookingid}" class="font-medium">Status:</label>
+              <select id="status-${b.bookingid}" class="border p-2 rounded">
+                ${["Pending", "Confirmed", "Completed", "Cancelled"].map(s => `
+                  <option value="${s}" ${s === b.bookingstatus ? "selected" : ""}>${s}</option>
+                `).join('')}
+              </select>
+              <button onclick="updateStatus('${b.bookingid}')" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                Update
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function updateStatus(bookingid) {
+      const newStatus = document.getElementById(`status-${bookingid}`).value;
+
+      const { error } = await supabase
+        .from("booking")
+        .update({ bookingstatus: newStatus })
+        .eq("bookingid", bookingid);
+
+      if (error) {
+        alert("❌ Failed to update: " + error.message);
+      } else {
+        alert("✅ Booking status updated.");
+        loadBookings();
+      }
+    }
+
+    loadBookings();
+  </script>
+</body>
+</html>
