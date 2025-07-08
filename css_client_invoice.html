@@ -75,10 +75,16 @@
             <p>${inv.invoicestatus}</p>
           </div>
 
-          <button onclick="payNow()"
-            class="mt-4 bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition">
-            💳 Proceed to Payment
-          </button>
+          <div class="flex gap-4 mt-6">
+            <button onclick="payNow()"
+              class="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition">
+              💳 Proceed to Payment
+            </button>
+            <button onclick="goToHome()"
+              class="bg-gray-500 text-white px-5 py-2 rounded hover:bg-gray-600 transition">
+              💼 Pay Later (Back to Home)
+            </button>
+          </div>
         </div>
       `;
     }
@@ -87,7 +93,12 @@
       window.location.href = `css_payment.html?booking=${bookingid}`;
     }
 
+    function goToHome() {
+      window.location.href = 'css_client_dashboard.html';
+    }
+
     loadInvoice();
   </script>
 </body>
 </html>
+
