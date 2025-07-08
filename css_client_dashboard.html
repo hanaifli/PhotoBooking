@@ -6,6 +6,15 @@
 </head>
 <body class="bg-gray-100 min-h-screen px-4 py-8">
   <div class="max-w-5xl mx-auto">
+
+    <!-- Logout Button -->
+    <div class="flex justify-end mb-4">
+      <button onclick="logout()"
+        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition">
+        🔓 Logout
+      </button>
+    </div>
+
     <h2 class="text-3xl font-bold mb-6 text-center text-gray-800">🎉 Welcome to Your Dashboard</h2>
 
     <!-- Service Packages -->
@@ -49,9 +58,9 @@
 
       container.innerHTML = data.map(pkg => {
         const descriptionLines = pkg.packagedescription
-       .split('\\n')  // Fix: handle stored literal \n
-       .map(line => `<div class="text-sm text-gray-600">• ${line.trim()}</div>`)
-       .join('');
+          .split('\\n')
+          .map(line => `<div class="text-sm text-gray-600">• ${line.trim()}</div>`)
+          .join('');
 
         return `
           <div class="border border-gray-200 rounded-md p-4 shadow-sm bg-gray-50">
@@ -130,6 +139,11 @@
 
     function printInvoice(id) {
       alert('🖨️ Printing invoice: ' + id);
+    }
+
+    async function logout() {
+      await supabase.auth.signOut();
+      window.location.href = 'css_login.html';
     }
 
     (async () => {
