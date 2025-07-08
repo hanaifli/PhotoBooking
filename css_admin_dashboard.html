@@ -6,6 +6,14 @@
 </head>
 <body class="bg-gray-100 min-h-screen py-10 px-4">
   <div class="max-w-4xl mx-auto">
+
+    <!-- Logout Button -->
+    <div class="flex justify-end mb-4">
+      <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition">
+        🔓 Logout
+      </button>
+    </div>
+
     <h1 class="text-3xl font-bold text-center text-gray-800 mb-10">📋 System Admin Dashboard</h1>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -57,5 +65,15 @@
 
     </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase.js"></script>
+  <script>
+    async function logout() {
+      await supabase.auth.signOut();
+      window.location.href = 'css_login.html';
+    }
+  </script>
 </body>
 </html>
+
